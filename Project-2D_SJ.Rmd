@@ -1,0 +1,90 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+Scientific Question: Will hypoxia induce macrophage infiltration in adipose tissue? 
+
+Background: Obesity is a worldwide health issue that has been linked to the accumulation of proinflammatory macrophages in adipose tissue. Infiltration of these macrophages is associated with the induction of insulin resistance and glucose intolerance, which are key effects of obesity (Sun et al. 2011). It has previously been observed that a decrease in adipose tissue oxygen tension is revealed in obesity (Hosogai et al. 2007). Further, the decrease in adipose tissue oxygen tension was sufficient to induce the stabilization of hypoxia-inducible factor 1a (Hosogai et al. 2007, Halberg et al. 2009). 
+
+The post-translational mechanism of regulation by oxygen tension levels are well known. In hypoxic conditions, prolyl hydroxylase domain proteins are inactivated leading to HIF-1a stabilization (Ivan and Kaelin 2017). This results in overexpression of HIF-1a. 
+
+The initiation of macrophage infiltration is not well understood. We suspect that HIF-1a expression will result in macrophage infiltration, which will lead to further adipose tissue dysfunction. 
+
+Scientific Hypothesis: If hypoxia induces obesity-related macrophage infiltration, then we should observe upregulation of CD68 (a marker for macrophage infiltration). 
+
+To address our question and hypothesis we will perform DESeq2.0 and P-values, and a heatmap will be used to visualize differentially expressed genes. DESeq2.0 allows us to analyze count data from RNA-seq to detect differentially expressed genes under hypoxic and normoxic conditions. A two-tailed ttest will be used to obtain a p-value. The p-value shows whether the difference between gene expression under hypoxic and normoxic conditions are statistically significant or not. A confidence level of 0.05 (alpha = 0.05) will be used. The heatmap will allow us to see a range of up and downregulation using darker (up) and lighter (down) colors. 
+
+THE PACKAGES NECESSARY:
+
+1) BioConductor:
+2) DESeq2:
+3) ggplot2
+
+```{r}
+#Installing DESeq2
+if (!requireNamespace("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+
+BiocManager::install("DESeq2")
+
+#Loading packages necessary. 
+library(BiocManager)
+library("DESeq2")
+library(ggplot2)
+```
+
+
+Below, we load in a .csv file for 10 different gene expressions under hypoxia and normoxia. Hypoxia conditioned samples are associated with ERR2138799 and Normoxia conditioned samples are associated with ERR2138798. Note all of the data were done with a single instrument to reduce noise (Illumina). 
+
+```{r}
+#Calling hn_data and hypoxia as a csv file. The csv files are excel sheets with the genes of interest under the two experimental conditions. Our main gene of interest is CD68 as it is a marker for macrophage infiltration. GAPDH was chosen as a housekeeping gene. VEGFA, PDK1, and CA9 have been confirmed to show highly differential expression. 
+
+#hn_data.csv is called upon as a matrix. Further down, DESeqDataSetFromMatrix requires input data to be a matrix. Contains raw count matrix.
+countData <- as.matrix(read.csv('hn_data.csv', header = TRUE, sep = ","))
+
+#make sure the file is called upon as a matrix. 
+countData
+
+#hypoxia.csv is called upon as a matrix. metaData contains the two conditions, hypoxia; treated, normoxia; control. metaData also contains cell type, sarcoma. metData contains descriptive data of countData. Column of countData corresponds with the row of metaData
+metaData <- as.matrix(read.csv('hypoxia.csv', header = FALSE, sep = ","))
+metaData 
+
+#Constructing DESEQDataSet Object. Converts counts to integer mode. Design specifies how each count correponds to varaibles in the metaData."~Hypoxia + Normoxia" means that deseq2 will test the effect of Normoxia, controlling the effect of Hypoxia. Tidy = TRUE argument tells to output results table with rownames as a first column.  
+dds <- DESeqDataSetFromMatrix(countData = countData, colData = metaData, design = ~Hypoxia + Normoxia, tidy = TRUE)
+
+#Finally running the DESEQ function.This estimates size factors (calculates the relative library depth of each sample), dispersions (estimates dispersion of counts for each gene), gene-wise dispersion, mean-dispersion relationship, final dispersion estimates, and fitting model and testing.
+dds <- DESeq(dds)
+
+#allows us to look at the results table. 
+res <- results(dds)
+```
+
+Below, p-values will be used to identify the statistical significance of gene expression under hypoxic and normoxic conditions. A t table was used to find a t-value that corresponds with 1 degree of freedom and 95% confidence. This t value is 12.71. The degree of freedom is 1 since we looked at two sets of sample (n) and degree of freedom is n - 1. 
+
+```{r}
+# Finding P-values using a two tailed ttest,sets t value as 12.71, degree of freedom as 1.Degree of freedom is 1 because we have two conditions (hypoxia, normoxia)- 1. 
+p_value = 2*pt(q=12.71, df=1, lower.tail = FALSE)
+
+# prints p-value
+p_value
+```
+
+
+```{r}
+## install.packages ("ggplots2")
+library(ggplot2)
+
+
+## Calls the heatmap
+##Uses geom_tile from ggplot2 for simple heatmap
+##x is set to condition under hypoxia and normoxia.
+## dds is from previous lines of code. dds is the DESeqdataset with the differentially expressed data.
+ggplot(dds, aes('Condition', 'Genes', fill= Z)) + 
+  geom_tile()
+
+```
+
+
+Results Analysis: In this project, we used DESeq2 to investigate the differential expression of genes of interests and p-values to see if those differences were significant. Further, a heatmap was used to visualize the DESeq2 data. Note that DESeq2 and p-values are similar in that both methods show the significance of differences within the datasets. We are able to say hypoxia will induce macrophage infiltration. We find the differential expression between hypoxia and normoxia of CD68, our marker for macrophage infiltration, to be significant with a p-value of 0.04998 with 95% confidence. This aligns with similar studies finding macrophage recruitment to be associated with hypoxia. However, typically a p-value less than or equal to 0.05 is considered to be statistically significant. It should be noted that my p-value of 0.04998 is extremely close to 0.05. Further, the datasets are from gene expression studies from hypoxic and normoxic sarcoma and not adipose tissue. 
+
